@@ -68,6 +68,9 @@ else:
 
 build_kit.late_init(env)
 
+# GCC false-positive maybe-uninitialized inside PinCRT libc++ unordered_map
+env['CXXFLAGS'] += ' -Wno-error=maybe-uninitialized '
+
 if 'clean' in env['targets']:
     mbuild.remove_tree(env['build_dir'])
     sys.exit(0)
