@@ -58,6 +58,12 @@ def createJSONData(resultsdir, outputdir, verbose = False):
   for cache in [ 'L1-I', 'L1-D' ] + [ 'L%u'%l for l in range(2, 5) ]:
     if '%s.loads' % cache in results:
       data['cache.%s' % cache] = format_mpki(sum(results['%s.load-misses'%cache]) + sum(results['%s.store-misses-I'%cache]))
+    elif '%s.tloads' % cache in results:
+      # MMU fork: per-category cache counters; rolled-up totals are t-prefixed
+      # (tloads/tload-misses/tstores/tstore-misses). No stock loads/store-misses-I.
+      data['cache.%s' % cache] = format_mpki(sum(results['%s.tload-misses'%cache]) + sum(results['%s.tstore-misses'%cache]))
+    else:
+      data['cache.%s' % cache] = 'n/a'
 
   data['html'] = '''\
 <table>

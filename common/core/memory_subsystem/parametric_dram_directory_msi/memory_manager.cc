@@ -57,7 +57,8 @@ namespace ParametricDramDirectoryMSI
 																					   m_dram_cache(NULL),
 																					   m_dram_directory_cntlr(NULL),
 																					   m_dram_cntlr(NULL),
-																					   m_dram_cntlr_present(false)
+																					   m_dram_cntlr_present(false),
+																					   m_tag_directory_present(false)
 
 	{
 

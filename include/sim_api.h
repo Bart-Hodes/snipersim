@@ -102,7 +102,7 @@
        "mov %1, %%" MAGIC_REG_A "\n"                 \
        "\tmov %2, %%" MAGIC_REG_B "\n"               \
        "\txchg %%bx, %%bx\n"                         \
-       : "=a"(_res) /* output    */                  \
+       : "=&a"(_res) /* output (earlyclobber) */     \
        : "g"(_cmd),                                  \
          "g"(_arg0)        /* input     */           \
        : "%" MAGIC_REG_B); /* clobbered */           \
@@ -116,7 +116,7 @@
        "\tmov %2, %%" MAGIC_REG_B "\n"                               \
        "\tmov %3, %%" MAGIC_REG_C "\n"                               \
        "\txchg %%bx, %%bx\n"                                         \
-       : "=a"(_res) /* output    */                                  \
+       : "=&a"(_res) /* output (earlyclobber) */                     \
        : "g"(_cmd),                                                  \
          "g"(_arg0),                                                 \
          "g"(_arg1)                         /* input     */          \

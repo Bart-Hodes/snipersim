@@ -64,7 +64,7 @@ class Category(Call):
     print('%6.2f%%\t' % (100 * self.data['nonidle_elapsed_time'] / float(prof.totals['nonidle_elapsed_time'])) + \
                   '%6.2f%%\t' % (100 * self.data['instruction_count'] / float(prof.totals['instruction_count'])) + \
                   '%7.2f\t' % (self.data['instruction_count'] / (prof.fs_to_cycles * float(self.data['nonidle_elapsed_time']))) + \
-                  '%7.2f\t' % (1000 * self.data['l2miss'] / float(self.data['instruction_count'])) + \
+                  '%7.2f\t' % (1000 * self.data.get('l2miss', 0) / float(self.data['instruction_count'])) + \
                   self.name, file=obj)
 
 
@@ -93,7 +93,7 @@ class CallPrinterDefault(CallPrinter):
                        '%6.2f%%\t' % (100 * call.data['waiting_cost'] / float(self.prof.totals['total_coretime'] or 1)) + \
                        '%6.2f%%\t' % (100 * call.total['instruction_count'] / float(self.prof.totals['instruction_count'] or 1)) + \
                        '%7.2f\t' % (call.total['instruction_count'] / (self.prof.fs_to_cycles * float(call.total['nonidle_elapsed_time'] or 1))) + \
-                       '%7.2f\t' % (1000 * call.total['l2miss'] / float(call.total['instruction_count'] or 1)) + \
+                       '%7.2f\t' % (1000 * call.total.get('l2miss', 0) / float(call.total['instruction_count'] or 1)) + \
                        '  ' * offset + call.name, file=self.obj)
 
 
@@ -107,7 +107,7 @@ class CallPrinterAbsolute(CallPrinter):
                        '%9d\t' % (self.prof.fs_to_cycles * float(call.data['waiting_cost'])) + \
                        '%9d\t' % call.total['instruction_count'] + \
                        '%9d\t' % call.data['instruction_count'] + \
-                       '%9d\t' % call.total['l2miss'] + \
+                       '%9d\t' % call.total.get('l2miss', 0) + \
                        '  ' * offset + call.name, file=self.obj)
 
 
@@ -210,7 +210,7 @@ class Profile:
       ('Cycles', 'Cycles',               lambda data: int(self.fs_to_cycles * data['nonidle_elapsed_time'])),
       ('Calls',  'Calls',                lambda data: data['calls']),
       ('Icount', 'Instruction count',    lambda data: data['instruction_count']),
-      ('L2',     'L2 load misses',       lambda data: data['l2miss']),
+      ('L2',     'L2 load misses',       lambda data: data.get('l2miss', 0)),
     )
 
     def formatData(data):

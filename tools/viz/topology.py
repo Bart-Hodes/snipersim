@@ -64,12 +64,18 @@ def createJSONData(interval, num_intervals, resultsdir, outputdir, verbose = Fal
         if ids[cache][core] != core:
           # Non-master cache
           continue
-        if '%s.loads' % cache in results:
+        if '%s.loads' % cache in results or '%s.tloads' % cache in results:
+          # MMU fork: rolled-up totals are t-prefixed (tload-misses/tstore-misses);
+          # stock builds use load-misses/store-misses-I. Pick whichever exists.
+          if '%s.loads' % cache in results:
+            mk_lo, mk_st = '%s.load-misses'%cache, '%s.store-misses-I'%cache
+          else:
+            mk_lo, mk_st = '%s.tload-misses'%cache, '%s.tstore-misses'%cache
           # Sum misses and instruction counts over all cores sharing this cache
           misses = 0; ninstrs = 0
           for _core in range(ncores):
             if ids[cache][_core] == ids[cache][core]:
-              misses += results['%s.load-misses'%cache][_core] + results['%s.store-misses-I'%cache][_core]
+              misses += results[mk_lo][_core] + results[mk_st][_core]
               ninstrs += results['performance_model.instruction_count'][_core]
           data['%s-%d' % (cache, core)]['sparkdata'].append('%.3f' % (1000. * misses / float(ninstrs or 1.)))
           data['%s-%d' % (cache, core)]['info'] = 'MPKI (%s-%d)' % (cache, core)
