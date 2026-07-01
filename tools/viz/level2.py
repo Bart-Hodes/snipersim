@@ -6,6 +6,10 @@ HOME = os.path.abspath(os.path.dirname(__file__))
 sys.path.extend( [os.path.abspath(os.path.join(HOME, '..'))] )
 import sniper_lib, sniper_config, sniper_stats, cpistack, cpistack_items, mcpat, json
 
+# Suffix appended to all generated data filenames for the current pass.
+# Empty for the aggregate (all cores) view, '-coreN' for per-core views.
+filesuffix = ''
+
 
 # From http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
 def mkdir_p(path):
@@ -170,7 +174,7 @@ def collectCPIStackDataFIC(verbose=False, requested_cores_list = []):
       index+=1
     output = re.sub(r'("[xy]": )"([^\"]*)"',r'\1\2',json.dumps(jsonoutput, indent=4))
     mkdir_p(os.path.join(outputdir,'levels','level2','data'))
-    jsonfile = open(os.path.join(outputdir,'levels','level2','data',title+'-'+name+'.json'), "w")
+    jsonfile = open(os.path.join(outputdir,'levels','level2','data',title+filesuffix+'-'+name+'.json'), "w")
     jsonfile.write(output)
     jsonfile.close()
 
@@ -327,7 +331,7 @@ def writetojson(outputdir, componentname, componenttype, componentindex, verbose
     index+=1
   output = re.sub(r'("[xy]": )"([^\"]*)"',r'\1\2',json.dumps(jsonoutput, indent=4))
   mkdir_p(os.path.join(outputdir,'levels','level2','data'))
-  jsonfile = open(os.path.join(outputdir,'levels','level2','data',title+'-'+componentname+'.json'), "w")
+  jsonfile = open(os.path.join(outputdir,'levels','level2','data',title+filesuffix+'-'+componentname+'.json'), "w")
   jsonfile.write(output)
   jsonfile.close()
 
@@ -377,12 +381,15 @@ def writeinfo(outputdir, verbose = False):
     print('Writing info.txt')
   mkdir_p(os.path.join(outputdir,'levels','level2','data'))
   info = open(os.path.join(outputdir,'levels','level2','data','info.txt'), "w")
+  ncores = int(config['general/total_cores'])
   #info.write("infostr ='{ \"name\":\""+title+"\", \"intervalsize\":\""+str(interval)+"\", \"num_intervals\":\""+str(num_intervals)+"\",\"use_mcpat\":\""+str(use_mcpat)+"}';\n")
-  info.write("infostr = '"+json.dumps(dict(name=title,intervalsize=interval,num_intervals=num_intervals,use_mcpat=use_mcpat))+"';\n")
+  info.write("infostr = '"+json.dumps(dict(name=title,intervalsize=interval,num_intervals=num_intervals,use_mcpat=use_mcpat,ncores=ncores))+"';\n")
   info.close()
 
 # Write used lables in the info.txt file
-def writelabels(outputdir, componentname, componenttype):
+# varprefix is prepended to the generated JS variable name so that each per-core
+# view gets its own set of label variables (e.g. 'core0_cpipercentagelabels').
+def writelabels(outputdir, componentname, componenttype, varprefix = ''):
   mkdir_p(os.path.join(outputdir,'levels','level2','data'))
   labels = open(os.path.join(outputdir,'levels','level2','data','info.txt'), "a")
   labels.write("palette = new Rickshaw.Color.Palette( { scheme: 'munin' } );\n")
@@ -411,7 +418,7 @@ def writelabels(outputdir, componentname, componenttype):
       jsonoutput.append(dict(name=key, color="rgb(%d,%d,%d)" % colors[key]))
       output = json.dumps(jsonoutput)
 
-  labels.write(componentname+"labels = "+output+";\n")
+  labels.write(varprefix+componentname+"labels = "+output+";\n")
   labels.close()
 
 
@@ -420,10 +427,10 @@ def writeIPCvaluestoJSON(outputdir, verbose = False):
   if verbose:
     print('Writing '+title+'-ipc.json')
   mkdir_p(os.path.join(outputdir,'levels','level2','data'))
-  ipcjsonfile = open(os.path.join(outputdir,'levels','level2','data',title+'-ipc.json'), "w")
+  ipcjsonfile = open(os.path.join(outputdir,'levels','level2','data',title+filesuffix+'-ipc.json'), "w")
   ipcjsonfile.write(json.dumps(ipcvalues, indent=4))
   ipcjsonfile.close()
-  ipcjsonfile = open(os.path.join(outputdir,'levels','level2','data',title+'-ipcfic.json'), "w")
+  ipcjsonfile = open(os.path.join(outputdir,'levels','level2','data',title+filesuffix+'-ipcfic.json'), "w")
   ipcjsonfile.write(json.dumps(ipcvaluesfic, indent=4))
   ipcjsonfile.close()
 
@@ -480,7 +487,7 @@ def createJSONData(native_interval_, nativenum_intervals_, interval_, num_interv
   if verbose:
     print('Generate JSON data for Level 2')
 
-  global native_interval, nativenum_intervals, interval, num_intervals, resultsdir, outputdir, title, use_mcpat, stats, config
+  global native_interval, nativenum_intervals, interval, num_intervals, resultsdir, outputdir, title, use_mcpat, stats, config, filesuffix
   native_interval = native_interval_
   nativenum_intervals = nativenum_intervals_
   interval = interval_
@@ -492,32 +499,49 @@ def createJSONData(native_interval_, nativenum_intervals_, interval_, num_interv
   stats = sniper_stats.SniperStats(resultsdir_)
   config = sniper_lib.get_config(resultsdir = resultsdir_)
 
-  initialize()
-
-  collectCPIStackDataFIC(verbose = verbose, requested_cores_list = requested_cores_list)
-  collectCPIStackDataFCC(verbose = verbose, requested_cores_list = requested_cores_list)
-
-  writetojson(outputdir,"cpipercentage","cpi",1,verbose=verbose)
-  writetojson(outputdir,"cpipercentagesimplified","cpisimplified",1,verbose=verbose)
-
+  # Info and markers are shared between all views, write them once up front
+  # (writeinfo truncates info.txt, so it must run before any writelabels append).
   writeinfo(outputdir,verbose)
   writemarkers(outputdir,verbose)
 
-  writelabels(outputdir,"cpipercentage","cpi")
-  writelabels(outputdir,"cpipercentagesimplified","cpisimplified")
-  writelabels(outputdir, "cpific","cpific")
-  writelabels(outputdir, "simple","cpisimplified")
+  # Generate one full set of data files per view. The aggregate view (all cores
+  # combined) keeps the original, suffix-less filenames so it stays the default;
+  # each core additionally gets its own '-coreN' suffixed set of files.
+  def collectAndWrite(suffix, varprefix, cores_list, do_mcpat):
+    global filesuffix
+    filesuffix = suffix
+    initialize()
 
-  writeIPCvaluestoJSON(outputdir)
+    collectCPIStackDataFIC(verbose = verbose, requested_cores_list = cores_list)
+    collectCPIStackDataFCC(verbose = verbose, requested_cores_list = cores_list)
 
-  if(use_mcpat):
-    collectMcPATData(verbose)
-    writetojson(outputdir,"power","mcpat",1,verbose)
-    writetojson(outputdir,"energy","mcpat",2,verbose)
-    writetojson(outputdir,"energypercentage","mcpat",3,verbose)
-    writelabels(outputdir,"power","mcpat")
-    writelabels(outputdir,"energy","mcpat")
-    writelabels(outputdir,"energypercentage","mcpat")
+    writetojson(outputdir,"cpipercentage","cpi",1,verbose=verbose)
+    writetojson(outputdir,"cpipercentagesimplified","cpisimplified",1,verbose=verbose)
+
+    writelabels(outputdir,"cpipercentage","cpi",varprefix)
+    writelabels(outputdir,"cpipercentagesimplified","cpisimplified",varprefix)
+    writelabels(outputdir, "cpific","cpific",varprefix)
+    writelabels(outputdir, "simple","cpisimplified",varprefix)
+
+    writeIPCvaluestoJSON(outputdir)
+
+    if(do_mcpat and use_mcpat):
+      collectMcPATData(verbose)
+      writetojson(outputdir,"power","mcpat",1,verbose)
+      writetojson(outputdir,"energy","mcpat",2,verbose)
+      writetojson(outputdir,"energypercentage","mcpat",3,verbose)
+      writelabels(outputdir,"power","mcpat",varprefix)
+      writelabels(outputdir,"energy","mcpat",varprefix)
+      writelabels(outputdir,"energypercentage","mcpat",varprefix)
+
+  # Aggregate view over all (or the requested) cores: the default.
+  collectAndWrite('', '', requested_cores_list, True)
+
+  # Per-core views. Restrict to the requested cores if a list was given.
+  ncores = int(config['general/total_cores'])
+  percore_list = requested_cores_list if requested_cores_list else list(range(ncores))
+  for core in percore_list:
+    collectAndWrite('-core%d' % core, 'core%d_' % core, [core], False)
 
 if __name__ == '__main__':
   def usage():

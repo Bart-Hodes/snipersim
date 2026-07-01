@@ -63,8 +63,13 @@
   var info = jQuery.parseJSON(infostr);
   var name = info.name
   var date = info.date
-  var ipcfilename = "data/".concat(info.name.concat("-ipc.json"));
-  var ipcfilename2 = "data/".concat(info.name.concat("-ipcfic.json"));
+  var ncores = info.ncores;
+  // Which core view is shown. '' = aggregate (all cores). Per core the data
+  // files carry a '-coreN' suffix and the label variables a 'coreN_' prefix.
+  var currentcoresuffix = '';
+  var currentcoreprefix = '';
+  function ipcfilenameFor(suffix) { return "data/".concat(name).concat(suffix).concat("-ipc.json"); }
+  function ipcfilename2For(suffix) { return "data/".concat(name).concat(suffix).concat("-ipcfic.json"); }
   var intervalsize = info.intervalsize;
   var errorSeen = false;
   var errorCallback = function(data) {
@@ -95,6 +100,12 @@
       <input type="radio" name="renderer" id="area" value="area" checked="checked" />
       <label for="area">area</label>
     </div>
+    <section>
+      <h6>Core</h6>
+      <select id="coreselect" onchange="selectCore(this.value);">
+        <option value="" selected="selected">All cores</option>
+      </select>
+    </section>
     <section>
       <div id="offset_form">
         <script type="text/javascript">document.write("<input type='radio' id='detailsimple' name='detailselect' value='simple' onchange='createGraph(this.value,currentnormalized);' checked='checked' /\>");</script>
@@ -192,129 +203,137 @@
 
 
 <script type="text/javascript">
+// The two IPC graphs are (re)built by these functions so they can be reloaded
+// with a different core's data when the core selection changes.
 var ipcgraph;
-var graph = new Rickshaw.Graph.Ajax( {
-	element: document.getElementById("ipcchart"),
-	width: 800,
-	height: 150,
-	renderer: 'area',
-	defaultInterpolation: 'step-after',
-	stroke: true,
-	dataURL: ipcfilename,
-	onError: errorCallback,
-	onData: function(d) { return d },
-	onComplete: function(transport) {
-		var graph = ipcgraph = transport.graph;
-		var hoverDetail = new Rickshaw.Graph.HoverDetail( {
-			graph: graph,
-			xFormatter: function(x) {
-					return x+" µs";
-			},
-
-			yFormatter: function(y) {
-					var content = Math.round(y*100)/100 + " IPC";
-					return content;
-				},
-			} );
-		var controls = new RenderControls( {
-			element: document.querySelector('form'),
-			graph: graph
-		} );
-
-		var smoother = new Rickshaw.Graph.Smoother( {
-			graph: graph,
-			element: $('#ipcsmoother')
-		} );
-		var ticksTreatment = 'glow';
-
-		var yAxis = new Rickshaw.Graph.Axis.Y( {
-			graph: graph,
-			tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
-			ticksTreatment: ticksTreatment,
-		} );
-
-		yAxis.render();
-
-		var xAxis = new Rickshaw.Graph.Axis.X( {
-			graph: graph,
-			tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
-			ticksTreatment: ticksTreatment,
-			orientation: "bottom",
-		} );
-
-		xAxis.render();
-	},
-	series: [
-		{
-			name: 'IPC',
-			color: 'green'
-		}
-	]
-} );
-
-
-</script>
-
-<script type="text/javascript">
 var ipcgraph2;
-var graph = new Rickshaw.Graph.Ajax( {
-	element: document.getElementById("ipcchart2"),
-	width: 800,
-	height: 150,
-	renderer: 'area',
-	defaultInterpolation: 'step-after',
-	stroke: true,
-	dataURL: ipcfilename2,
-	onError: errorCallback,
-	onData: function(d) { return d },
-	onComplete: function(transport) {
-		var graph = ipcgraph2 = transport.graph;
-		var hoverDetail = new Rickshaw.Graph.HoverDetail( {
-			graph: graph,
-			xFormatter: function(x) {
-					return x+" µs";
-			},
 
-			yFormatter: function(y) {
-					var content = Math.round(y*100)/100 + " IPC";
-					return content;
+function createIPCGraph() {
+	$('#ipcchart').empty();
+	new Rickshaw.Graph.Ajax( {
+		element: document.getElementById("ipcchart"),
+		width: 800,
+		height: 150,
+		renderer: 'area',
+		defaultInterpolation: 'step-after',
+		stroke: true,
+		dataURL: ipcfilenameFor(currentcoresuffix),
+		onError: errorCallback,
+		onData: function(d) { return d },
+		onComplete: function(transport) {
+			var graph = ipcgraph = transport.graph;
+			var hoverDetail = new Rickshaw.Graph.HoverDetail( {
+				graph: graph,
+				xFormatter: function(x) {
+						return x+" µs";
 				},
+
+				yFormatter: function(y) {
+						var content = Math.round(y*100)/100 + " IPC";
+						return content;
+					},
+				} );
+			var controls = new RenderControls( {
+				element: document.querySelector('form'),
+				graph: graph
 			} );
-		var controls = new RenderControls( {
-			element: document.querySelector('form'),
-			graph: graph
-		} );
 
-		var smoother = new Rickshaw.Graph.Smoother( {
-			graph: graph,
-			element: $('#ipcsmoother2')
-		} );
-		var ticksTreatment = 'glow';
+			var smoother = new Rickshaw.Graph.Smoother( {
+				graph: graph,
+				element: $('#ipcsmoother')
+			} );
+			var ticksTreatment = 'glow';
 
-		var yAxis = new Rickshaw.Graph.Axis.Y( {
-			graph: graph,
-			tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
-			ticksTreatment: ticksTreatment,
-		} );
+			var yAxis = new Rickshaw.Graph.Axis.Y( {
+				graph: graph,
+				tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+				ticksTreatment: ticksTreatment,
+			} );
 
-		yAxis.render();
+			yAxis.render();
 
-		var xAxis = new Rickshaw.Graph.Axis.X( {
-			graph: graph,
-			tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
-			ticksTreatment: ticksTreatment,
-			orientation: "bottom",
-		} );
+			var xAxis = new Rickshaw.Graph.Axis.X( {
+				graph: graph,
+				tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+				ticksTreatment: ticksTreatment,
+				orientation: "bottom",
+			} );
 
-		xAxis.render();
-	},
-	series: [
-		{
-			name: 'IPC',
-			color: 'green'
-		}
-	]
-} );
+			xAxis.render();
+		},
+		series: [
+			{
+				name: 'IPC',
+				color: 'green'
+			}
+		]
+	} );
+}
+
+function createIPCGraph2() {
+	$('#ipcchart2').empty();
+	new Rickshaw.Graph.Ajax( {
+		element: document.getElementById("ipcchart2"),
+		width: 800,
+		height: 150,
+		renderer: 'area',
+		defaultInterpolation: 'step-after',
+		stroke: true,
+		dataURL: ipcfilename2For(currentcoresuffix),
+		onError: errorCallback,
+		onData: function(d) { return d },
+		onComplete: function(transport) {
+			var graph = ipcgraph2 = transport.graph;
+			var hoverDetail = new Rickshaw.Graph.HoverDetail( {
+				graph: graph,
+				xFormatter: function(x) {
+						return x+" µs";
+				},
+
+				yFormatter: function(y) {
+						var content = Math.round(y*100)/100 + " IPC";
+						return content;
+					},
+				} );
+			var controls = new RenderControls( {
+				element: document.querySelector('form'),
+				graph: graph
+			} );
+
+			var smoother = new Rickshaw.Graph.Smoother( {
+				graph: graph,
+				element: $('#ipcsmoother2')
+			} );
+			var ticksTreatment = 'glow';
+
+			var yAxis = new Rickshaw.Graph.Axis.Y( {
+				graph: graph,
+				tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+				ticksTreatment: ticksTreatment,
+			} );
+
+			yAxis.render();
+
+			var xAxis = new Rickshaw.Graph.Axis.X( {
+				graph: graph,
+				tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+				ticksTreatment: ticksTreatment,
+				orientation: "bottom",
+			} );
+
+			xAxis.render();
+		},
+		series: [
+			{
+				name: 'IPC',
+				color: 'green'
+			}
+		]
+	} );
+}
+
+createIPCGraph();
+createIPCGraph2();
 
 
 </script>
@@ -352,25 +371,34 @@ function createGraph(detail, normalized) {
 			};
   }
 
+  // Data files carry the '-coreN' suffix and label variables the 'coreN_'
+  // prefix for the currently selected core (both empty for the aggregate view).
+  function dataFile(component) {
+    return "data/".concat(name).concat(currentcoresuffix).concat("-").concat(component).concat(".json");
+  }
+  function labelsFor(labelvar) {
+    return window[currentcoreprefix.concat(labelvar)];
+  }
+
   if (detail == "simple") {
 
 	   if (normalized) {
-	    	var filename = "data/".concat(info.name.concat("-cpipercentagesimplified.json"));
-	    	labels = cpipercentagesimplifiedlabels;
+	    	var filename = dataFile("cpipercentagesimplified");
+	    	labels = labelsFor("cpipercentagesimplifiedlabels");
 	   }
 	   else {
-		var filename = "data/".concat(info.name.concat("-cpificsimple.json"));
-	   	labels = simplelabels;
+		var filename = dataFile("cpificsimple");
+	   	labels = labelsFor("simplelabels");
 	    }
   }
   else if (detail == "full") {
 	   if (normalized) {
-	    	var filename = "data/".concat(info.name.concat("-cpipercentage.json"));
-	    	labels = cpipercentagelabels;
+	    	var filename = dataFile("cpipercentage");
+	    	labels = labelsFor("cpipercentagelabels");
 	   }
 	   else {
-		var filename = "data/".concat(info.name.concat("-cpific.json"));
-	   	labels = cpificlabels;
+		var filename = dataFile("cpific");
+	   	labels = labelsFor("cpificlabels");
 
 	    }
   }
@@ -495,6 +523,33 @@ $('#ipcgraphshow').change(function() {
 
 
 <script type="text/javascript">
+// Populate the core selector with one entry per core (in addition to the
+// default "All cores" aggregate option already present in the markup).
+(function() {
+  var select = document.getElementById('coreselect');
+  for (var c = 0; c < ncores; c++) {
+    var option = document.createElement('option');
+    option.value = String(c);
+    option.text = 'Core ' + c;
+    select.add(option);
+  }
+})();
+
+// Switch the whole page (CPI stacks + IPC graphs) to a different core.
+// An empty value selects the aggregate view over all cores.
+function selectCore(value) {
+  if (value === '') {
+    currentcoresuffix = '';
+    currentcoreprefix = '';
+  } else {
+    currentcoresuffix = '-core' + value;
+    currentcoreprefix = 'core' + value + '_';
+  }
+  createIPCGraph();
+  createIPCGraph2();
+  createGraph(currentdetail, currentnormalized);
+}
+
 $('#ipcchartcontent').hide();
 $('#ipcchart2content').hide();
 createGraph('simple',true);
