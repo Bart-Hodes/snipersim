@@ -120,6 +120,8 @@ if __name__ == '__main__':
   elif num_intervals < defaultnum_intervals:
     # Automatically determine interval to end up with (around) num_intervals in total
     interval = defaultinterval * max(1, int(defaultnum_intervals / num_intervals))
+    # An interval *count*, fed to range() in level2.py: Python 3's `/` makes it
+    # a float, which raises there.
     num_intervals = int(defaultinterval * defaultnum_intervals / interval)
 
   if interval == None:

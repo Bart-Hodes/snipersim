@@ -33,23 +33,51 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
+// The host CPUs this process may run on, sampled ONCE.
+//
+// It has to be a snapshot. A thread inherits the affinity mask of the thread
+// that created it, and trace threads are created from within other trace
+// threads -- so re-reading the mask per thread returns whatever single CPU the
+// creator had already been pinned to, not the process's pool. Round-robin over
+// that degenerate list is `id % 1 == 0` for everyone, and the whole simulation
+// (plus the recorded application, which inherits the same mask) collapses onto
+// one host CPU.
+//
+// First call happens before any thread has narrowed itself, so the snapshot is
+// the full pool.
+// ---------------------------------------------------------------------------
+static const std::vector<int> &hostCPUPool()
+{
+   static const std::vector<int> pool = []
+   {
+      std::vector<int> cpus;
+      cpu_set_t available;
+      CPU_ZERO(&available);
+      if (sched_getaffinity(0, sizeof(available), &available) != 0)
+         return cpus;  // cannot query - leave scheduling to the OS
+      for (int c = 0; c < CPU_SETSIZE; ++c)
+         if (CPU_ISSET(c, &available))
+            cpus.push_back(c);
+      return cpus;
+   }();
+   return pool;
+}
+
+// ---------------------------------------------------------------------------
 // Pin calling thread to a distinct host CPU chosen from the process's
-// available set (typically constrained by SLURM's cgroup).  Thread-safe:
-// uses a static atomic counter so each caller gets a different CPU.
+// available set (typically constrained by SLURM's cgroup). Wraps when there
+// are more trace threads than CPUs, so placement is only distinct while
+// nthreads <= |pool|.
+//
+// Set SNIPER_PIN_TRACE_THREADS=0 to leave placement to the OS.
 // ---------------------------------------------------------------------------
 static void pinTraceThreadToCPU(int thread_id)
 {
-   cpu_set_t available;
-   CPU_ZERO(&available);
-   if (sched_getaffinity(0, sizeof(available), &available) != 0)
-      return;  // cannot query – leave scheduling to the OS
+   const char *pin = getenv("SNIPER_PIN_TRACE_THREADS");
+   if (pin && pin[0] == '0')
+      return;
 
-   // Collect the list of CPUs we are allowed to use
-   std::vector<int> cpus;
-   for (int c = 0; c < CPU_SETSIZE; ++c)
-      if (CPU_ISSET(c, &available))
-         cpus.push_back(c);
-
+   const std::vector<int> &cpus = hostCPUPool();
    if (cpus.empty())
       return;
 

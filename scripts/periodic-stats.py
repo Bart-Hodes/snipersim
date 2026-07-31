@@ -30,7 +30,12 @@ class PeriodicStats:
 
   def periodic(self, time, time_delta):
     if self.max_snapshots and self.num_snapshots > self.max_snapshots:
-      self.num_snapshots /= 2
+      # Floor division: this counter names the snapshots, as
+      # 'periodic-<num_snapshots * interval>'. Python 3's `/` turned it into a
+      # float, so after a halving the names landed on half- and then
+      # quarter-multiples of the interval and the grid stopped being uniform --
+      # which tools/viz assumes it is.
+      self.num_snapshots //= 2
       for t in range(self.interval, time, self.interval * 2):
         sim.util.db_delete('periodic-%d' % t)
       self.interval *= 2
