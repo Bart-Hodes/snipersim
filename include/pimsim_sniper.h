@@ -9,7 +9,9 @@
 //
 // Sniper config ([pimsim] section, or -g --pimsim/...):
 //   config    = path of pimsim's INI (e.g. pimsim/configs/upmem.cfg)
-//   overrides = "section/key=value;..." applied on top
+//   <section>/<key> = value   overrides pimsim's section/key, e.g.
+//               -g --pimsim/pim/num_dpus=4   or   [pimsim/pim] num_dpus = 4
+//   overrides = "section/key=value;..." (config files only: -g cannot parse it)
 // pimsim is created at the first PIMSIM_CMD_CALL; its statistics go to
 // pimsim.stats in the Sniper output directory.
 

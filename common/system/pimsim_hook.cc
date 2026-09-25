@@ -59,6 +59,25 @@ String cfgString(const char *key)
    return Sim()->getCfg()->hasKey(key) ? Sim()->getCfg()->getString(key) : String("");
 }
 
+// Every key in a subsection of [pimsim] is a pimsim override:
+// -g --pimsim/pim/num_dpus=4  or  [pimsim/pim] num_dpus = 4.
+void collectOverrides(const config::Section &sec, const String &prefix, String &out)
+{
+   for (const auto &k : sec.getKeys())
+      out += prefix + k.first + "=" + k.second->getString() + "\n";
+   for (const auto &sub : sec.getSubsections())
+      collectOverrides(*sub.second, prefix + sub.first + "/", out);
+}
+
+String pimsimOverrides()
+{
+   String out = cfgString("pimsim/overrides") + "\n";
+   if (Sim()->getCfg()->getRoot().hasSection("pimsim"))
+      for (const auto &sub : Sim()->getCfg()->getSection("pimsim").getSubsections())
+         collectOverrides(*sub.second, sub.first + "/", out);
+   return out;
+}
+
 void memAccess(void *ctx, uint64_t addr, void *buf, uint64_t n, int write)
 {
    Core *core = static_cast<Core*>(ctx);
@@ -75,7 +94,7 @@ SInt64 pimCall(Core *core, UInt64 desc_addr)
    char err[512] = "";
    if (!s_pim)
    {
-      s_pim = pimsim_bridge_create(cfgString("pimsim/config").c_str(), cfgString("pimsim/overrides").c_str(), err, sizeof err);
+      s_pim = pimsim_bridge_create(cfgString("pimsim/config").c_str(), pimsimOverrides().c_str(), err, sizeof err);
       if (!s_pim)
          fatal("cannot create the PIM system", err);
    }
