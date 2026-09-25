@@ -87,6 +87,7 @@ PerformanceModel::PerformanceModel(Core *core)
    registerStatsMetric("performance_model", core->getId(), "cpiSyncSyscall", &m_cpiSyncSyscall);
    registerStatsMetric("performance_model", core->getId(), "cpiSyncUnscheduled", &m_cpiSyncUnscheduled);
    registerStatsMetric("performance_model", core->getId(), "cpiSyncDvfsTransition", &m_cpiSyncDvfsTransition);
+   registerStatsMetric("performance_model", core->getId(), "cpiPimWait", &m_cpiPimWait);
 
    registerStatsMetric("performance_model", core->getId(), "cpiRecv", &m_cpiRecv);
 }
@@ -267,6 +268,9 @@ void PerformanceModel::handleIdleInstruction(PseudoInstruction *instruction)
       switch(delay_insn->getDelayType()) {
       case(DelayInstruction::DVFS_TRANSITION):
          m_cpiSyncDvfsTransition += insn_cost;
+         break;
+      case(DelayInstruction::PIM_WAIT):
+         m_cpiPimWait += insn_cost;
          break;
       default:
          LOG_ASSERT_ERROR(false, "Unexpected DelayInstruction::type_t enum type. (%d)", delay_insn->getDelayType());

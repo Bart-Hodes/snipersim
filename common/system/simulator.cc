@@ -17,6 +17,7 @@
 #include "trace_manager.h"
 #include "dvfs_manager.h"
 #include "hooks_manager.h"
+#include "pimsim_hook.h"
 #include "sampling_manager.h"
 #include "fault_injection.h"
 #include "routine_tracer.h"
@@ -187,6 +188,7 @@ void Simulator::start()
    PthreadEmu::init();
 
    m_hooks_manager->init();
+   PimsimHook::init();
    if (m_trace_manager)
       m_trace_manager->init();
 

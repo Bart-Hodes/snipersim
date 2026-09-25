@@ -257,6 +257,7 @@ class DelayInstruction : public PseudoInstruction
 public:
    enum delay_type_t {
       DVFS_TRANSITION,
+      PIM_WAIT,         // host core stalled on the PIM device (pimsim)
       NUM_TYPES
    };
    DelayInstruction(SubsecondTime cost, delay_type_t delay_type)
