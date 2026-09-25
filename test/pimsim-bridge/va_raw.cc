@@ -62,15 +62,11 @@ int main(int argc, char** argv) {
   c = call(PIM_SYS_LOAD, (uint64_t)argv[1]);
   CHECK(c.ret == 0, "load returned %ld", (long)c.ret);
 
-  uint64_t t0 = SimUser(PIMSIM_CMD_NOW_PS, 0);
   pimsim_call x1 = xfer(PIM_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS", 0, sizeof args[0], pa);
   pimsim_call x2 = xfer(PIM_XFER_TO_DPU, PIM_MRAM_HEAP_SYMBOL, 0, kBytes, pA);
   pimsim_call x3 = xfer(PIM_XFER_TO_DPU, PIM_MRAM_HEAP_SYMBOL, kBytes, kBytes, pB);
-  uint64_t t1 = SimUser(PIMSIM_CMD_NOW_PS, 0);
   pimsim_call l = call(PIM_SYS_LAUNCH, 0, kDpus, 0);  // synchronous
-  uint64_t t2 = SimUser(PIMSIM_CMD_NOW_PS, 0);
   pimsim_call x4 = xfer(PIM_XFER_FROM_DPU, PIM_MRAM_HEAP_SYMBOL, kBytes, kBytes, pC);
-  uint64_t t3 = SimUser(PIMSIM_CMD_NOW_PS, 0);
   call(PIM_SYS_FREE);
   SimSetInstrumentMode(SIM_OPT_INSTRUMENT_FASTFORWARD);
 
@@ -78,8 +74,6 @@ int main(int argc, char** argv) {
         (long)x1.ret, (long)x2.ret, (long)x3.ret, (long)l.ret, (long)x4.ret);
   printf("stall ps: args %lu, A %lu, B %lu, launch %lu, C %lu\n", (unsigned long)x1.stall_ps,
          (unsigned long)x2.stall_ps, (unsigned long)x3.stall_ps, (unsigned long)l.stall_ps, (unsigned long)x4.stall_ps);
-  printf("host time ps: CPU-DPU %lu, launch %lu, DPU-CPU %lu\n", (unsigned long)(t1 - t0), (unsigned long)(t2 - t1),
-         (unsigned long)(t3 - t2));
 
   uint64_t bad = 0;
   for (uint32_t i = 0; i < kDpus * kElems; ++i) bad += C[i] != (int32_t)((uint32_t)A[i] + (uint32_t)B[i]);

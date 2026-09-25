@@ -1,9 +1,5 @@
+out/
 results/
-out*/
 *.o
-bridge_test
-hello
-bigmem
-magic1
-magic2
 va_raw
+make-run.log

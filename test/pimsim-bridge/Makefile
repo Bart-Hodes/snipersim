@@ -1,14 +1,20 @@
-TARGET=bridge_test
+# PrIM VA on 4 simulated DPUs through raw pimsim driver calls (va_raw.cc).
+#   make run      (needs pimsim next to snipersim, with its VA DPU kernel:
+#                  make -C ../pimsim/apps/prim/VA NR_DPUS=4)
+TARGET=va_raw
 include ../shared/Makefile.shared
 CXXFLAGS=$(SNIPER_CXXFLAGS)
-
-$(TARGET): $(TARGET).o
-	$(CXX) $(TARGET).o $(SNIPER_LDFLAGS) -o $(TARGET)
-
 PIMSIM_ROOT ?= $(abspath ../../../pimsim)
 
-va_raw: va_raw.cc ../../include/pimsim_sniper.h
-	$(CXX) $(CXXFLAGS) -I$(PIMSIM_ROOT)/include va_raw.cc $(SNIPER_LDFLAGS) -o va_raw
+$(TARGET): $(TARGET).cc ../../include/pimsim_sniper.h
+	$(CXX) $(CXXFLAGS) -I$(PIMSIM_ROOT)/include $< $(SNIPER_LDFLAGS) -o $@
 
-run_$(TARGET):
-	../../run-sniper -v -n 1 -c gainestown -- ./bridge_test
+run_$(TARGET): $(TARGET)
+	SNIPER_ROOT=$(abspath ../..) ../../run-sniper -d out \
+	  -c address_translation_schemes/coffee_lake_9900k.cfg \
+	  -g --perf_model/mmu/sanity_checks_enabled=false \
+	  -g --pimsim/config=$(PIMSIM_ROOT)/configs/upmem.cfg \
+	  -g --pimsim/pim/num_dpus=4 \
+	  -- ./$(TARGET) $(PIMSIM_ROOT)/apps/prim/VA/bin/dpu_code
+
+CLEAN_EXTRA=out
