@@ -9,6 +9,7 @@
   nativeBuildInputs = with pkgs; [
     binutils
     gnumake
+    cmake       # builds pimsim (linked into sniper for the PIM bridge)
     gcc13
     curl
     git

@@ -54,6 +54,16 @@ PYTHON_LD_LIBS := $(shell python3-config --libs --embed)
 HAVE_LZMA := $(shell printf 'int main() { return 0; }\n' | $(CXX) -xc++ - -llzma >/dev/null 2>&1 && echo 1 || echo 0)
 LZMA_LINK_LIBS := $(if $(filter 1,$(HAVE_LZMA)),-llzma,)
 TORCH_LINK_LIBS := $(if $(wildcard $(SIM_ROOT)/libtorch/lib/libtorch.so),-ltorch,) $(if $(wildcard $(SIM_ROOT)/libtorch/lib/libc10.so),-lc10,)
+# pimsim (PIM device simulator, common/system/pimsim_hook.cc). Linked into
+# the sniper binary (standalone/Makefile) when its library exists; build it with pimsim's CMake inside this nix-shell:
+#   cmake -S $(PIMSIM_ROOT) -B $(PIMSIM_ROOT)/build-sniper -DCMAKE_BUILD_TYPE=Release && cmake --build ... --target pimsim_core
+PIMSIM_ROOT ?= $(abspath $(SIM_ROOT)/../pimsim)
+PIMSIM_LIB ?= $(PIMSIM_ROOT)/build-sniper/libpimsim_core.a
+ifneq ($(wildcard $(PIMSIM_LIB)),)
+PIMSIM_ENABLED := 1
+CXXFLAGS += -DPIMSIM_ENABLED -I$(PIMSIM_ROOT)/src
+endif
+
 LD_LIBS += -ldecoder -lsift -lxed -lrt -lz -lbz2 $(LZMA_LINK_LIBS) -lsqlite3 $(PYTHON_LD_LIBS) $(TORCH_LINK_LIBS)
 
 LD_FLAGS += -L$(SIM_ROOT)/lib -L$(SIM_ROOT)/decoder_lib/ -L$(SIM_ROOT)/sift -L$(XED_HOME)/lib -L$(SIM_ROOT)/libtorch/lib

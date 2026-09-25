@@ -53,6 +53,12 @@ endif
 
 # These libraries are used by libcarbon, so add them to the end
 LD_LIBS += -lxed
+
+# pimsim, used by libcarbon's pimsim hook (see common/Makefile.common)
+ifeq ($(PIMSIM_ENABLED),1)
+LD_LIBS += $(PIMSIM_LIB)
+$(TARGET): $(PIMSIM_LIB)
+endif
 LD_FLAGS += -L$(XED_HOME)/lib -no-pie
 
 ifneq ($(CLEAN),clean)
