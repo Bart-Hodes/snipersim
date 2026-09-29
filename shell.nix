@@ -17,6 +17,8 @@
     pkg-config
     (python3.withPackages (ps: with ps; [ numpy ]))
     which
+    # RISC-V cross compiler for pimsim's DPU kernels (riscv32-none-elf-gcc)
+    pkgsCross.riscv32-embedded.buildPackages.gcc
   ];
 
   buildInputs = with pkgs; [
