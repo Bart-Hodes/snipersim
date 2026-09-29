@@ -30,8 +30,8 @@ static pimsim_call call(uint64_t num, uint64_t a0 = 0, uint64_t a1 = 0, uint64_t
 // One push/pull: the same symbol range on every DPU, one host buffer each.
 static pimsim_call xfer(uint32_t dir, const char* sym, uint64_t offset, uint64_t size, void* const bufs[]) {
   pim_xfer_entry_t e[kDpus];
-  for (unsigned i = 0; i < kDpus; ++i) e[i] = pim_xfer_entry_t{i, 0, (uint64_t)bufs[i]};
-  pim_xfer_t d = {dir, kDpus, (uint64_t)sym, offset, size, (uint64_t)e};
+  for (unsigned i = 0; i < kDpus; ++i) e[i] = pim_xfer_entry_t{i, 0, (uint64_t)bufs[i], offset, size};
+  pim_xfer_t d = {dir, kDpus, (uint64_t)sym, (uint64_t)e};
   return call(PIM_SYS_XFER, (uint64_t)&d);
 }
 

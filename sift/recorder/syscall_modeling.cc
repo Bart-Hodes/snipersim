@@ -105,10 +105,13 @@ VOID emulateSyscallFunc(THREADID threadid, CONTEXT *ctxt)
          // then when the thread ends, write 0 to the tid mutex and futex_wake it
          case SYS_clone3_sniper:
          {
-            if (args[0] && CLONE_THREAD)
+            struct clone_args_sniper* clone3_args = (struct clone_args_sniper*)args[0];
+            if (clone3_args && (clone3_args->flags & CLONE_THREAD))
             {
-               struct clone_args_sniper* clone3_args = (struct clone_args_sniper*)args[0];
-               ADDRINT tidptr = clone3_args->parent_tid;
+               // The word the kernel clears and futex-wakes at thread exit is
+               // child_tid (CLONE_CHILD_CLEARTID). pthread_join waits on it; since
+               // glibc 2.4x it is no longer pd->tid, which is parent_tid.
+               ADDRINT tidptr = (clone3_args->flags & CLONE_CHILD_CLEARTID) ? clone3_args->child_tid : 0;
                PIN_GetLock(&new_threadid_lock, threadid);
                tidptrs.push_back(tidptr);
                PIN_ReleaseLock(&new_threadid_lock);

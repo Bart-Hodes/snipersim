@@ -209,7 +209,7 @@ namespace ParametricDramDirectoryMSI
 	SubsecondTime MemoryManagementUnitBase::accessCache(translationPacket packet, SubsecondTime t_start, bool is_prefetch, HitWhere::where_t& out_hit_where)
 	{
 
-		mmu_base_log->debug("---- Starting cache access from MMU");
+		SIM_LOG_DEBUG(*mmu_base_log, "---- Starting cache access from MMU");
 		SubsecondTime host_translation_latency = SubsecondTime::Zero();
 		IntPtr host_physical_address = packet.address;
 		// If there is a nested MMU, perform address translation to translate the guest physical address to the host physical address
@@ -245,11 +245,11 @@ namespace ParametricDramDirectoryMSI
 
 		shmem_perf_model->setElapsedTime(ShmemPerfModel::_USER_THREAD, t_start);
 
-		mmu_base_log->debug("Accessing cache with address:", SimLog::hex(packet.address), "at time", t_start.getNS(), "ns");
+		SIM_LOG_DEBUG(*mmu_base_log, "Accessing cache with address:", SimLog::hex(packet.address), "at time", t_start.getNS(), "ns");
 		HitWhere::where_t hit_where = HitWhere::UNKNOWN;
 		if(is_prefetch){
 
-			mmu_base_log->debug("Prefetching address:", SimLog::hex(packet.address), "at time", t_start.getNS(), "ns");
+			SIM_LOG_DEBUG(*mmu_base_log, "Prefetching address:", SimLog::hex(packet.address), "at time", t_start.getNS(), "ns");
 			IntPtr cache_address = ((IntPtr)(packet.address)) & (~((64 - 1)));
 
 			MMUCacheInterface *l2_cache = memory_manager->getCacheCntlrAt(core->getId(), MemComponent::L2_CACHE);
@@ -268,7 +268,7 @@ namespace ParametricDramDirectoryMSI
 			packet.count, packet.type, host_translation_latency);
 			
 			stats.memory_accesses++;
-			mmu_base_log->debug("Cache hit where:", HitWhereString(hit_where));
+			SIM_LOG_DEBUG(*mmu_base_log, "Cache hit where:", HitWhereString(hit_where));
 			
 			if (hit_where == HitWhere::where_t::L2_OWN)
 				walker_stats.L2_accesses++;
@@ -310,7 +310,7 @@ namespace ParametricDramDirectoryMSI
 		// Tag the cache block with the block type (e.g., page table data)
 		memory_manager->tagCachesBlockType(packet.address, packet.type);
 
-		mmu_base_log->debug("---- Finished cache access from MMU");
+		SIM_LOG_DEBUG(*mmu_base_log, "---- Finished cache access from MMU");
 
 		return t_end - t_start;
 	}
@@ -376,8 +376,8 @@ namespace ParametricDramDirectoryMSI
 		/* iterate through the accesses and calculate the latency for each table and level */
 		SubsecondTime t_now =  shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD);
 
-		mmu_base_log->debug("Starting PTW at time:", t_now.getNS(), "ns");
-		mmu_base_log->debug("We need to access", accesses.size(), "addresses");
+		SIM_LOG_DEBUG(*mmu_base_log, "Starting PTW at time:", t_now.getNS(), "ns");
+		SIM_LOG_DEBUG(*mmu_base_log, "We need to access", accesses.size(), "addresses");
 
 		// There are two options here: we will either charge the latency of the page fault before the PTW or after the PTW
 		// In this case, we will charge the page fault latency after the PTW -> this will happen in the mmu_base.cc
@@ -408,7 +408,7 @@ namespace ParametricDramDirectoryMSI
 
 		for (int level = 0; level < (levels + 1); level++)
 		{
-			mmu_base_log->debug("We start performing all the accesses for level:", level);
+			SIM_LOG_DEBUG(*mmu_base_log, "We start performing all the accesses for level:", level);
 			for (int tab = 0; tab < (tables + 1); tab++)
 			{
 
@@ -446,7 +446,7 @@ namespace ParametricDramDirectoryMSI
 							
 							MetadataContext::set(core->getId(), ptw_info);
 							
-							mmu_base_log->debug("Metadata context set for PTW access - address:", SimLog::hex(current_address), "level:", level, "table:", tab, "ptw_id:", current_ptw_id);
+							SIM_LOG_DEBUG(*mmu_base_log, "Metadata context set for PTW access - address:", SimLog::hex(current_address), "level:", level, "table:", tab, "ptw_id:", current_ptw_id);
 							latency = accessCache(packet, t_now+fetch_delay[tab], false, temp_hit_where);
 							
 							// Track prefetch-specific walker stats
@@ -472,7 +472,7 @@ namespace ParametricDramDirectoryMSI
 						else{
 							latency = SubsecondTime::Zero();
 						}
-						mmu_base_log->debug("Accessed address:", SimLog::hex(current_address), "level:", level, "table:", tab, "latency:", latency.getNS(), "ns");
+						SIM_LOG_DEBUG(*mmu_base_log, "Accessed address:", SimLog::hex(current_address), "level:", level, "table:", tab, "latency:", latency.getNS(), "ns");
 					
 						if (accesses[req].is_pte == true)
 						{
@@ -492,11 +492,11 @@ namespace ParametricDramDirectoryMSI
 				}
 				// We need to update the fetch delay for the next level 
 				fetch_delay[tab] += latency_per_table_per_level[tab][level];
-				mmu_base_log->trace("Finished PTW for table:", tab, "level:", level, "at time:", (t_now+fetch_delay[tab]).getNS(), "ns");
+				SIM_LOG_TRACE(*mmu_base_log, "Finished PTW for table:", tab, "level:", level, "at time:", (t_now+fetch_delay[tab]).getNS(), "ns");
 			}
 		}
 
-		mmu_base_log->debug("Finding latency for correct translation");
+		SIM_LOG_DEBUG(*mmu_base_log, "Finding latency for correct translation");
 
 		// Walking the correct table leads to the calculation of the total walk latency
 		// The requests for the other tables will be sent to the cache hierarchy to model the contention 
@@ -511,7 +511,7 @@ namespace ParametricDramDirectoryMSI
             int cnt_nuca = 0;
             int cnt_dram = 0;
 
-			mmu_base_log->debug("Found correct translation - table:", correct_table, "level:", correct_level);
+			SIM_LOG_DEBUG(*mmu_base_log, "Found correct translation - table:", correct_table, "level:", correct_level);
 			for (int level = 0; level < (levels + 1); level++)
 			{
 
@@ -524,7 +524,7 @@ namespace ParametricDramDirectoryMSI
                 else if (loc == HitWhere::where_t::NUCA_CACHE) cnt_nuca++;
                 else if (loc == HitWhere::where_t::DRAM_LOCAL) cnt_dram++;
 
-				mmu_base_log->trace("Adding latency for level:", level, "table:", correct_table, "latency:", latency_per_table_per_level[correct_table][level].getNS(), "ns, total:", walk_latency.getNS(), "ns");
+				SIM_LOG_TRACE(*mmu_base_log, "Adding latency for level:", level, "table:", correct_table, "latency:", latency_per_table_per_level[correct_table][level].getNS(), "ns, total:", walk_latency.getNS(), "ns");
 			}
 
 			#if ENABLE_MMU_CSV_LOGS
@@ -541,7 +541,7 @@ namespace ParametricDramDirectoryMSI
 			#endif
 		}
 		else {
-			mmu_base_log->debug("No correct translation found - using max latency from slowest table");
+			SIM_LOG_DEBUG(*mmu_base_log, "No correct translation found - using max latency from slowest table");
 			SubsecondTime max_latency = SubsecondTime::Zero();
 			for (int tab = 0; tab < (tables + 1); tab++)
 			{
@@ -579,8 +579,8 @@ namespace ParametricDramDirectoryMSI
 	 */
 	PTWOutcome MemoryManagementUnitBase::performPTW(IntPtr address, bool modeled, bool count, bool is_prefetch, IntPtr eip, Core::lock_signal_t lock, PageTable *page_table, bool restart_walk, bool instruction)
 	{
-			mmu_base_log->section("Starting PTW");
-			mmu_base_log->debug("PTW for address:", SimLog::hex(address));
+			SIM_LOG_SECTION(*mmu_base_log, "Starting PTW");
+			SIM_LOG_DEBUG(*mmu_base_log, "PTW for address:", SimLog::hex(address));
 
 			auto ptw_result = page_table->initializeWalk(address, count, is_prefetch, restart_walk);
 
@@ -595,12 +595,12 @@ namespace ParametricDramDirectoryMSI
 			// This filtering is necessary to remove any redundant accesses that may hit in the PWC
 
 
-			mmu_base_log->debug("Accessed", ptw_result.accesses.size(), "addresses");
+			SIM_LOG_DEBUG(*mmu_base_log, "Accessed", ptw_result.accesses.size(), "addresses");
 			if (mmu_base_log->isEnabled(SimLog::LEVEL_TRACE)) {
 				visited_pts = ptw_result.accesses;
 				for (UInt32 i = 0; i < visited_pts.size(); i++)
 				{
-					mmu_base_log->trace("Address:", SimLog::hex(visited_pts[i].physical_addr), "Level:", visited_pts[i].depth, "Table:", visited_pts[i].table_level, "Correct:", visited_pts[i].is_pte);
+					SIM_LOG_TRACE(*mmu_base_log, "Address:", SimLog::hex(visited_pts[i].physical_addr), "Level:", visited_pts[i].depth, "Table:", visited_pts[i].table_level, "Correct:", visited_pts[i].is_pte);
 				}
 			}
 
@@ -621,13 +621,13 @@ namespace ParametricDramDirectoryMSI
 			mimicos->setIsPageFault(pf_core_id, is_pagefault); //  propagate down the call stack that page fault occurred, so that we can mark the instruction to be replayed in trace_thread.cc/run()
 			mimicos->setNumRequestedFrames(pf_core_id, requested_frames); // Propagate requested frames for backward compatibility
 			
-			mmu_base_log->trace("PTW result - is_pagefault:", (is_pagefault ? "True" : "False"));
+			SIM_LOG_TRACE(*mmu_base_log, "PTW result - is_pagefault:", (is_pagefault ? "True" : "False"));
 
 			if(is_pagefault){
 
 				mimicos->setVaTriggeredPageFault(pf_core_id, address); // Store the virtual address that caused the page fault
-				mmu_base_log->debug("Page fault for address:", SimLog::hex(address));
-				mmu_base_log->debug("Requested frames:", requested_frames);
+				SIM_LOG_DEBUG(*mmu_base_log, "Page fault for address:", SimLog::hex(address));
+				SIM_LOG_DEBUG(*mmu_base_log, "Requested frames:", requested_frames);
 			}
 
 			SubsecondTime ptw_cycles = SubsecondTime::Zero();
@@ -660,11 +660,11 @@ namespace ParametricDramDirectoryMSI
 			
 
 			
-			mmu_base_log->debug("Finished PTW for address: ", address);
-			mmu_base_log->debug("PTW latency: ", ptw_cycles);
-			mmu_base_log->debug("Physical Page Number: ", ppn_result);
-			mmu_base_log->debug("Page Size: ", page_size);
-			mmu_base_log->debug("-------------- End of PTW");
+			SIM_LOG_DEBUG(*mmu_base_log, "Finished PTW for address: ", address);
+			SIM_LOG_DEBUG(*mmu_base_log, "PTW latency: ", ptw_cycles);
+			SIM_LOG_DEBUG(*mmu_base_log, "Physical Page Number: ", ppn_result);
+			SIM_LOG_DEBUG(*mmu_base_log, "Page Size: ", page_size);
+			SIM_LOG_DEBUG(*mmu_base_log, "-------------- End of PTW");
 
 			return PTWOutcome(ptw_cycles, is_pagefault, ppn_result, page_size, requested_frames, leaf_payload_bits);
 	}
@@ -685,7 +685,7 @@ namespace ParametricDramDirectoryMSI
 	 */
 	std::pair<IntPtr, int> MemoryManagementUnitBase::translateWithoutTiming(IntPtr address, PageTable *page_table)
 	{
-		mmu_base_log->debug("Perfect translation (zero latency) for address:", SimLog::hex(address));
+		SIM_LOG_DEBUG(*mmu_base_log, "Perfect translation (zero latency) for address:", SimLog::hex(address));
 
 		// Perform the page table walk - this handles page faults and returns PPN
 		// We use restart_walk_after_fault=true so faults are handled automatically
@@ -700,7 +700,7 @@ namespace ParametricDramDirectoryMSI
 		IntPtr page_offset = address & ((1ULL << page_size) - 1);
 		IntPtr physical_address = (ppn * base_page_size) + page_offset;
 
-		mmu_base_log->debug("Perfect translation result: PA=", SimLog::hex(physical_address), 
+		SIM_LOG_DEBUG(*mmu_base_log, "Perfect translation result: PA=", SimLog::hex(physical_address), 
 		                    " PPN=", ppn, " page_size=", page_size);
 
 		return std::make_pair(physical_address, page_size);

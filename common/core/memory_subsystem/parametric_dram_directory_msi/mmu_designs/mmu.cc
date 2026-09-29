@@ -115,7 +115,7 @@ namespace ParametricDramDirectoryMSI
         
         // Initialize centralized logging
         mmu_log = new SimLog("MMU", core->getId(), DEBUG_MMU);
-        mmu_log->log("Initializing MMU for core " + std::to_string(core->getId()));
+        SIM_LOG_INFO(*mmu_log, "Initializing MMU for core " + std::to_string(core->getId()));
 
         // Initialize CSV logs for detailed per-page analysis
 #if ENABLE_MMU_CSV_LOGS
@@ -454,14 +454,14 @@ namespace ParametricDramDirectoryMSI
                 translation_stats.total_translation_latency += l1_dtlb_latency;
             }
             
-            mmu_log->debug("Perfect translation: VA " + mmu_log->hex(address) + 
+            SIM_LOG_DEBUG(*mmu_log, "Perfect translation: VA " + mmu_log->hex(address) + 
                           " -> PA " + mmu_log->hex(physical_address) + 
                           " (L1 dTLB latency: " + std::to_string(l1_dtlb_latency.getNS()) + "ns)");
             
             return physical_address;
         }
 
-        mmu_log->section("Starting address translation for virtual address: " + 
+        SIM_LOG_SECTION(*mmu_log, "Starting address translation for virtual address: " + 
                         mmu_log->hex(address) + " at time " + 
                         std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
 
@@ -522,7 +522,7 @@ namespace ParametricDramDirectoryMSI
         // Iterate through TLB hierarchy levels (0 = L1, 1 = L2, ...)
         for (UInt32 i = 0; i < tlbs.size(); i++)
         {
-            mmu_log->debug("Searching TLB at level: " + std::to_string(i));
+            SIM_LOG_DEBUG(*mmu_log, "Searching TLB at level: " + std::to_string(i));
             
             // Search all TLBs at this level (may have separate i/d TLBs)
             for (UInt32 j = 0; j < tlbs[i].size(); j++)
@@ -567,7 +567,7 @@ namespace ParametricDramDirectoryMSI
             // (we search all TLBs at the same level in parallel, but levels are serial)
             if (hit)
             {
-                mmu_log->log("TLB Hit at level " + std::to_string(hit_level) + 
+                SIM_LOG_INFO(*mmu_log, "TLB Hit at level " + std::to_string(hit_level) + 
                            " at TLB " + std::string(hit_tlb->getName().c_str()));
                 break;
             }
@@ -614,7 +614,7 @@ namespace ParametricDramDirectoryMSI
             ppn_result = tlb_block_info_hit->getPPN();
             page_size = tlb_block_info_hit->getPageSize();
 
-            mmu_log->log("TLB Hit at level " + std::to_string(hit_level) + 
+            SIM_LOG_INFO(*mmu_log, "TLB Hit at level " + std::to_string(hit_level) + 
                         " at TLB " + std::string(hit_tlb->getName().c_str()));
             
             // Get the appropriate TLB path (instruction or data) for latency
@@ -634,7 +634,7 @@ namespace ParametricDramDirectoryMSI
                 {
                     tlb_latency[i] = max(tlb_path[i][j]->getLatency(), tlb_latency[i]);
                 }
-                mmu_log->debug("Charging TLB Latency: " + std::to_string(tlb_latency[i].getNS()) + 
+                SIM_LOG_DEBUG(*mmu_log, "Charging TLB Latency: " + std::to_string(tlb_latency[i].getNS()) + 
                              "ns at level " + std::to_string(i));
                 translation_stats.total_tlb_latency += tlb_latency[i];
                 translation_stats.tlb_latency_per_level[i] += tlb_latency[i];
@@ -654,7 +654,7 @@ namespace ParametricDramDirectoryMSI
 						charged_tlb_latency += hit_tlb->getLatency();
 						translation_stats.tlb_latency_per_level[hit_level] += hit_tlb->getLatency();
 					}
-                    mmu_log->debug("Charging TLB Hit Latency: " + std::to_string(hit_tlb->getLatency().getNS()) + 
+                    SIM_LOG_DEBUG(*mmu_log, "Charging TLB Hit Latency: " + std::to_string(hit_tlb->getLatency().getNS()) + 
                                  "ns at level " + std::to_string(hit_level));
                 }
 
@@ -696,7 +696,7 @@ namespace ParametricDramDirectoryMSI
             // This ensures PTW (if any) starts after TLB lookup completes
             // Be very careful if you want to play around with the timing model
             shmem_perf_model->setElapsedTime(ShmemPerfModel::_USER_THREAD, time + charged_tlb_latency); 
-            mmu_log->debug("New time after charging TLB latency: " + 
+            SIM_LOG_DEBUG(*mmu_log, "New time after charging TLB latency: " + 
                           std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
 
             // Track instruction vs data TLB hits and latency
@@ -723,7 +723,7 @@ namespace ParametricDramDirectoryMSI
         {
             SubsecondTime tlb_latency[tlbs.size()];  // VLA for TLB latencies
             
-            mmu_log->log("TLB Miss");
+            SIM_LOG_INFO(*mmu_log, "TLB Miss");
             for (UInt32 i = 0; i < tlbs.size(); i++) 
             {
                 tlb_latency[i] = SubsecondTime::Zero();
@@ -732,7 +732,7 @@ namespace ParametricDramDirectoryMSI
                 {
                     tlb_latency[i] = max(tlbs[i][j]->getLatency(), tlb_latency[i]);
                 }
-                mmu_log->debug("Charging TLB Latency: " + std::to_string(tlb_latency[i].getNS()) + 
+                SIM_LOG_DEBUG(*mmu_log, "Charging TLB Latency: " + std::to_string(tlb_latency[i].getNS()) + 
                              "ns at level " + std::to_string(i));
                 translation_stats.total_tlb_latency += tlb_latency[i];
                 charged_tlb_latency += tlb_latency[i];
@@ -740,7 +740,7 @@ namespace ParametricDramDirectoryMSI
             
             // Advance time so PTW starts after TLB miss is confirmed
             shmem_perf_model->setElapsedTime(ShmemPerfModel::_USER_THREAD, time + charged_tlb_latency);
-            mmu_log->debug("New time after charging TLB latency: " + 
+            SIM_LOG_DEBUG(*mmu_log, "New time after charging TLB latency: " + 
                           std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
 
             // Track instruction vs data TLB misses and latency
@@ -797,7 +797,7 @@ namespace ParametricDramDirectoryMSI
 
             // Advance time to when a walker becomes available
             shmem_perf_model->setElapsedTime(ShmemPerfModel::_USER_THREAD, time_for_pt + delay);
-            mmu_log->debug("New time after charging PTW allocation delay: " + 
+            SIM_LOG_DEBUG(*mmu_log, "New time after charging PTW allocation delay: " + 
                           std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
 
             // Determine page fault handling mode
@@ -842,7 +842,7 @@ namespace ParametricDramDirectoryMSI
                 if (caused_page_fault)
                 {
                     had_page_fault = true;  // Track that a fault occurred (persists after retry)
-                    mmu_log->log("Page Fault caused by address " + mmu_log->hex(address) + 
+                    SIM_LOG_INFO(*mmu_log, "Page Fault caused by address " + mmu_log->hex(address) + 
                                " at time " + std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
                     translation_stats.page_faults++;
                     if (instruction)
@@ -854,7 +854,7 @@ namespace ParametricDramDirectoryMSI
                     // This avoids context switch overhead for better simulation speed
                     if (!userspace_mimicos_enabled)
                     {
-                        mmu_log->log("Handling page fault in sniper-space mode, calling exception handler");
+                        SIM_LOG_INFO(*mmu_log, "Handling page fault in sniper-space mode, calling exception handler");
                         
                         // Get the exception handler for this core
                         ExceptionHandlerBase *base_handler = Sim()->getCoreManager()->getCoreFromID(core->getId())->getExceptionHandler();
@@ -866,7 +866,7 @@ namespace ParametricDramDirectoryMSI
                         ExceptionHandlerBase::FaultCtx fault_ctx = sniper_handler->initFaultCtx(page_table, address, core->getId(), ptw_result.requested_frames, instruction);
                         sniper_handler->handle_page_fault(fault_ctx);
                         
-                        mmu_log->log("Page fault handled, restarting PTW for address " + mmu_log->hex(address));
+                        SIM_LOG_INFO(*mmu_log, "Page fault handled, restarting PTW for address " + mmu_log->hex(address));
                         // Loop will retry PTW now that page is mapped
                     }
                 }
@@ -881,9 +881,9 @@ namespace ParametricDramDirectoryMSI
             // is needed to handle the page fault.
             if(caused_page_fault && userspace_mimicos_enabled)
             {
-                mmu_log->log("Page Fault in userspace mode - address " + mmu_log->hex(address) + 
+                SIM_LOG_INFO(*mmu_log, "Page Fault in userspace mode - address " + mmu_log->hex(address) + 
                            " at time " + std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
-                mmu_log->log("Will trigger context switch to userspace MimicOS");
+                SIM_LOG_INFO(*mmu_log, "Will trigger context switch to userspace MimicOS");
 #if ENABLE_MMU_CSV_LOGS
                 if (count)
                 {
@@ -929,14 +929,14 @@ namespace ParametricDramDirectoryMSI
             ppn_result = ptw_result.ppn;  // Physical Page Number
             page_size = ptw_result.page_size;    // Page size (12=4KB, 21=2MB)
 
-            mmu_log->debug("New time after charging PTW completion: " + 
+            SIM_LOG_DEBUG(*mmu_log, "New time after charging PTW completion: " + 
                           std::to_string(shmem_perf_model->getElapsedTime(ShmemPerfModel::_USER_THREAD).getNS()) + "ns");
 
         }
 
 
-        mmu_log->debug("Total Walk Latency: " + std::to_string(total_walk_latency.getNS()) + "ns");
-        mmu_log->debug("Total Fault Latency: " + std::to_string(total_fault_latency.getNS()) + "ns");
+        SIM_LOG_DEBUG(*mmu_log, "Total Walk Latency: " + std::to_string(total_walk_latency.getNS()) + "ns");
+        SIM_LOG_DEBUG(*mmu_log, "Total Fault Latency: " + std::to_string(total_fault_latency.getNS()) + "ns");
 
         // ====================================================================
         // PHASE 4: TLB Allocation (populate TLBs with new translation)
@@ -991,13 +991,13 @@ namespace ParametricDramDirectoryMSI
                 {
                     TLBAllocResult result;
 
-                    mmu_log->debug("Processing evicted translations from level " + std::to_string(i - 1));
+                    SIM_LOG_DEBUG(*mmu_log, "Processing evicted translations from level " + std::to_string(i - 1));
                     
                     // Try to allocate each evicted translation
                     for (UInt32 k = 0; k < evicted_translations[i - 1].size(); k++)
                     {
                         const EvictedTranslation& evicted = evicted_translations[i - 1][k];
-                        mmu_log->detailed("Evicted Translation: " + mmu_log->hex(evicted.address));
+                        SIM_LOG_TRACE(*mmu_log, "Evicted Translation: " + mmu_log->hex(evicted.address));
                         
                         IntPtr evicted_address = evicted.address;
                         int evicted_page_size = evicted.page_size;
@@ -1006,7 +1006,7 @@ namespace ParametricDramDirectoryMSI
                         // Only allocate if TLB supports this page size
                         if (alloc_tlbs[i][j]->supportsPageSize(evicted_page_size))
                         {
-                            mmu_log->detailed("Allocating evicted entry in TLB: Level=" + std::to_string(i) + 
+                            SIM_LOG_TRACE(*mmu_log, "Allocating evicted entry in TLB: Level=" + std::to_string(i) + 
                                            " Index=" + std::to_string(j));
 
                             result = alloc_tlbs[i][j]->allocate(evicted_address, time, count, lock, evicted_page_size, evicted_ppn, false /* not self_alloc */, instruction);
@@ -1037,8 +1037,8 @@ namespace ParametricDramDirectoryMSI
                 
                 if (alloc_tlbs[i][j]->supportsPageSize(page_size) && alloc_tlbs[i][j]->getAllocateOnMiss() && (!hit || hit_level > i))
                 {
-                    mmu_log->detailed(std::string(alloc_tlbs[i][j]->getName().c_str()) + " supports page size " + std::to_string(page_size));
-                    mmu_log->detailed("Allocating in TLB: Level=" + std::to_string(i) + " Index=" + std::to_string(j) + 
+                    SIM_LOG_TRACE(*mmu_log, std::string(alloc_tlbs[i][j]->getName().c_str()) + " supports page size " + std::to_string(page_size));
+                    SIM_LOG_TRACE(*mmu_log, "Allocating in TLB: Level=" + std::to_string(i) + " Index=" + std::to_string(j) + 
                                     " PageSize=" + std::to_string(page_size) + " VPN=" + mmu_log->hex(address >> page_size));
                     TLBAllocResult result;
 
@@ -1141,7 +1141,7 @@ namespace ParametricDramDirectoryMSI
         // PPN is stored at 4KB granularity, so multiply by base page size
         IntPtr final_physical_address = (ppn_result * base_page_size_in_bytes) + offset;
 
-        mmu_log->debug("Physical Address: " + mmu_log->hex(final_physical_address) + 
+        SIM_LOG_DEBUG(*mmu_log, "Physical Address: " + mmu_log->hex(final_physical_address) + 
                       " PPN: " + mmu_log->hex(ppn_result * base_page_size_in_bytes) + 
                       " Page Size: " + std::to_string(page_size) + " Offset: " + mmu_log->hex(offset));
         // Track instruction vs data total translation latency
@@ -1154,9 +1154,9 @@ namespace ParametricDramDirectoryMSI
                 translation_stats.total_translation_latency_data += total_latency;
         }
 
-        mmu_log->debug("Total translation latency: " + std::to_string((charged_tlb_latency + total_walk_latency).getNS()) + "ns");
-        mmu_log->debug("Total fault latency: " + std::to_string(total_fault_latency.getNS()) + "ns");
-        mmu_log->section("Ending address translation for virtual address " + mmu_log->hex(address));
+        SIM_LOG_DEBUG(*mmu_log, "Total translation latency: " + std::to_string((charged_tlb_latency + total_walk_latency).getNS()) + "ns");
+        SIM_LOG_DEBUG(*mmu_log, "Total fault latency: " + std::to_string(total_fault_latency.getNS()) + "ns");
+        SIM_LOG_SECTION(*mmu_log, "Ending address translation for virtual address " + mmu_log->hex(address));
 
         // ====================================================================
         // Sanity Checks: Verify VA-PA mapping consistency

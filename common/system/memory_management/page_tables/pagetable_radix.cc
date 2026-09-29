@@ -36,9 +36,9 @@ namespace ParametricDramDirectoryMSI
                 std::string log_name = std::string(name.c_str()) + "_radix";
                 m_log = new SimLog(log_name, core_id, DEBUG_PAGE_TABLE_RADIX);
 
-                m_log->log("Creating Radix-based page table");
+                SIM_LOG_INFO(*m_log, "Creating Radix-based page table");
                 bzero(&stats, sizeof(stats));
-                m_log->log("After zeroing out stats");
+                SIM_LOG_INFO(*m_log, "After zeroing out stats");
 
                 registerStatsMetric(name, core_id, "page_faults", &stats.page_faults);
                 registerStatsMetric(name, core_id, "page_table_walks", &stats.page_table_walks);
@@ -46,7 +46,7 @@ namespace ParametricDramDirectoryMSI
                 registerStatsMetric(name, core_id, "pf_num_cache_accesses", &stats.pf_num_cache_accesses);
                 registerStatsMetric(name, core_id, "allocated_frames", &stats.allocated_frames);
 
-                m_log->log("After registering stats");
+                SIM_LOG_INFO(*m_log, "After registering stats");
 
                 stats.page_size_discovery = new UInt64[m_page_sizes];
 
@@ -56,12 +56,12 @@ namespace ParametricDramDirectoryMSI
                         registerStatsMetric(name, core_id, "page_size_discovery_" + itostr(i), &stats.page_size_discovery[i]);
                 }
 
-                m_log->log("After registering stats: page_size_discovery");
+                SIM_LOG_INFO(*m_log, "After registering stats: page_size_discovery");
 
                 root = (PTFrame *)malloc(sizeof(PTFrame));
                 root->entries = (PTEntry *)malloc(sizeof(PTEntry) * m_frame_size);
 
-                m_log->log("After malloc of root & root->entries");
+                SIM_LOG_INFO(*m_log, "After malloc of root & root->entries");
 
                 // @hsongara: Get the OS object
                 MimicOS* os;
@@ -70,13 +70,13 @@ namespace ParametricDramDirectoryMSI
                 else
                         os = Sim()->getMimicOS();
 
-                m_log->log("After init os = ", (void*)os);
+                SIM_LOG_INFO(*m_log, "After init os = ", (void*)os);
 
-                m_log->log("Before root->emulated_ppn");
+                SIM_LOG_INFO(*m_log, "Before root->emulated_ppn");
                 // TODO revert, but this will not work if there's only a single allocator in the sys, on VirtuOS side
                 root->emulated_ppn = 0; // os->getMemoryAllocator()->handle_page_table_allocations(4096);
-                m_log->log("After root->emulated_ppn = ", root->emulated_ppn);
-                m_log->detailed("Root frame: ", (void*)root);
+                SIM_LOG_INFO(*m_log, "After root->emulated_ppn = ", root->emulated_ppn);
+                SIM_LOG_TRACE(*m_log, "Root frame: ", (void*)root);
 
                 for (int i = 0; i < m_frame_size; i++)
                 {
@@ -111,8 +111,8 @@ namespace ParametricDramDirectoryMSI
         PTWResult PageTableRadix::initializeWalk(IntPtr address, bool count, bool is_prefetch, bool restart_walk_after_fault)
         {
 
-                m_log->section("RADIX Walk");
-                m_log->detailed("RADIX is coming.. with address ", SimLog::hex(address));
+                SIM_LOG_SECTION(*m_log, "RADIX Walk");
+                SIM_LOG_TRACE(*m_log, "RADIX is coming.. with address ", SimLog::hex(address));
 
                 if (count)
                         stats.page_table_walks++;
@@ -145,10 +145,10 @@ namespace ParametricDramDirectoryMSI
                 {
                         offset = (address >> (48 - 9 * (levels - level + 1))) & 0x1FF;
 
-                        m_log->detailed("Accessing PT address: ", (void*)current_frame, " at level: ", level, " with offset: ", offset, "and emulated ppn: ", current_frame->emulated_ppn);
+                        SIM_LOG_TRACE(*m_log, "Accessing PT address: ", (void*)current_frame, " at level: ", level, " with offset: ", offset, "and emulated ppn: ", current_frame->emulated_ppn);
                         visited_pts.push_back(PTWAccess(i, counter, (IntPtr)(current_frame->emulated_ppn * 4096 + offset * 8), current_frame->entries[offset].is_pte && current_frame->entries[offset].data.translation.valid));
 
-                        m_log->detailed("Pushed in visited: ", i, " ", counter, " ", (IntPtr)(current_frame->emulated_ppn * 4096 + offset * 8), " ", (current_frame->entries[offset].is_pte && current_frame->entries[offset].data.translation.valid));
+                        SIM_LOG_TRACE(*m_log, "Pushed in visited: ", i, " ", counter, " ", (IntPtr)(current_frame->emulated_ppn * 4096 + offset * 8), " ", (current_frame->entries[offset].is_pte && current_frame->entries[offset].data.translation.valid));
                         if (current_frame->entries[offset].is_pte)
                         {
 
@@ -177,7 +177,7 @@ namespace ParametricDramDirectoryMSI
                                         stats.page_faults++;
                                         is_pagefault = true;
 
-                                        m_log->detailed("PAGE FAULT RESOLVED for address: ", SimLog::hex(address));
+                                        SIM_LOG_TRACE(*m_log, "PAGE FAULT RESOLVED for address: ", SimLog::hex(address));
                                         if (restart_walk_after_fault)
                                                 goto restart_walk;
                                         else {
@@ -189,7 +189,7 @@ namespace ParametricDramDirectoryMSI
 
                                 if (count)
                                         stats.page_size_discovery[level - 1]++;
-                                m_log->detailed("Found translation for address: ", SimLog::hex(address), " with ppn: ", current_frame->entries[offset].data.translation.ppn, " at level: ", level, " with page size: ", m_page_size_list[level - 1]);
+                                SIM_LOG_TRACE(*m_log, "Found translation for address: ", SimLog::hex(address), " with ppn: ", current_frame->entries[offset].data.translation.ppn, " at level: ", level, " with page size: ", m_page_size_list[level - 1]);
                                 // Be careful with the return values -> always return PPN_RESULT at page size granularity
                                 ppn_result = current_frame->entries[offset].data.translation.ppn;
                                 LOG_ASSERT_ERROR(ppn_result != static_cast<IntPtr>(-1), "PPN is invalid");
@@ -201,12 +201,12 @@ namespace ParametricDramDirectoryMSI
                         }
                         else
                         {
-                                m_log->detailed("Moving to the next level");
+                                SIM_LOG_TRACE(*m_log, "Moving to the next level");
                                 // The entry was a pointer to the next level of the page table
                                 // We need to chase the pointer -> if the next level is NULL, we need to handle a page fault
                                 if (current_frame->entries[offset].data.next_level == NULL)
                                 {
-                                        m_log->detailed("Next level is NULL, we need to allocate a new frame");
+                                        SIM_LOG_TRACE(*m_log, "Next level is NULL, we need to allocate a new frame");
                                         if (restart_walk_after_fault) {
                                                 // TODO remove code duplication, add it to a base function
                                                 bool userspace_mimicos_enabled = Sim()->getCfg()->getBool("general/enable_userspace_mimicos");
@@ -230,8 +230,8 @@ namespace ParametricDramDirectoryMSI
                                         stats.page_faults++;
                                         is_pagefault = true;
 
-                                        m_log->detailed("Page fault resolved for address: ", SimLog::hex(address));
-                                        m_log->detailed("Restarting the walk");
+                                        SIM_LOG_TRACE(*m_log, "Page fault resolved for address: ", SimLog::hex(address));
+                                        SIM_LOG_TRACE(*m_log, "Restarting the walk");
                                         if (restart_walk_after_fault) {
                                                 goto restart_walk;
                                         }
@@ -252,9 +252,9 @@ namespace ParametricDramDirectoryMSI
                         counter++;
                 }
 
-                m_log->detailed("Finished walk for address: ", SimLog::hex(address));
-                m_log->detailed("Final physical page number: ", ppn_result);
-                m_log->detailed("Final page size: ", page_size_result);
+                SIM_LOG_TRACE(*m_log, "Finished walk for address: ", SimLog::hex(address));
+                SIM_LOG_TRACE(*m_log, "Final physical page number: ", ppn_result);
+                SIM_LOG_TRACE(*m_log, "Final page size: ", page_size_result);
 
                 // No page fault occurred, no frames needed
                 return PTWResult(page_size_result, visited_pts, ppn_result, pwc_latency, is_pagefault, 0);
@@ -262,10 +262,10 @@ namespace ParametricDramDirectoryMSI
 
         int PageTableRadix::updatePageTableFrames(IntPtr address, IntPtr core_id, IntPtr ppn, int page_size, std::vector<UInt64> frames)
         {
-             m_log->detailed("I was provided with the following frames: ");
+             SIM_LOG_TRACE(*m_log, "I was provided with the following frames: ");
              for (size_t i = 0; i < frames.size(); i++)
              {
-                     m_log->detailed("Frame: ", frames[i]);
+                     SIM_LOG_TRACE(*m_log, "Frame: ", frames[i]);
              }
                 PTFrame *current_frame = root;
                 PTFrame *previous_frame = NULL;
@@ -276,8 +276,8 @@ namespace ParametricDramDirectoryMSI
                 int level = levels;
                 int counter = 0;
 
-                m_log->section("Update Page Table Frames");
-                m_log->detailed("Updating page table frames for address: ", SimLog::hex(address), " with ppn: ", ppn, " and page size: ", page_size);
+                SIM_LOG_SECTION(*m_log, "Update Page Table Frames");
+                SIM_LOG_TRACE(*m_log, "Updating page table frames for address: ", SimLog::hex(address), " with ppn: ", ppn, " and page size: ", page_size);
 
                 accessedAddresses pagefault_addresses;
 
@@ -292,11 +292,11 @@ namespace ParametricDramDirectoryMSI
 
                         // Move to the next level of the page table
 
-                        m_log->detailed("Accessing: ", (void*)current_frame, " at level: ", level, " with offset: ", offset);
+                        SIM_LOG_TRACE(*m_log, "Accessing: ", (void*)current_frame, " at level: ", level, " with offset: ", offset);
 
                         if (current_frame == NULL)
                         {
-                                m_log->detailed("Current frame is NULL, we need to allocate a new frame");
+                                SIM_LOG_TRACE(*m_log, "Current frame is NULL, we need to allocate a new frame");
 
                                 // Bounds check before accessing frames vector
                                 LOG_ASSERT_ERROR(frames_used < static_cast<int>(frames.size()), 
@@ -307,16 +307,16 @@ namespace ParametricDramDirectoryMSI
                                 stats.allocated_frames++;
 
                                 new_pt_frame->entries = new PTEntry[m_frame_size];
-                                m_log->detailed("Frames used so far: ", frames_used);
-                                m_log->detailed("Allocating new page table frame at : ", frames[frames_used]);
+                                SIM_LOG_TRACE(*m_log, "Frames used so far: ", frames_used);
+                                SIM_LOG_TRACE(*m_log, "Allocating new page table frame at : ", frames[frames_used]);
                                 new_pt_frame->emulated_ppn = frames[frames_used];
                                 frames_used++;  // Increment after using the frame
                                 frames_allocated++;
                                 
                                 current_frame = new_pt_frame;
 
-                                m_log->detailed("New frame allocated: ", (void*)current_frame, " with emulated ppn: ", new_pt_frame->emulated_ppn);
-                                m_log->detailed("Previous frame: ", (void*)previous_frame, " at offset ", previous_offset, " is updated with the new frame: ", (void*)current_frame);
+                                SIM_LOG_TRACE(*m_log, "New frame allocated: ", (void*)current_frame, " with emulated ppn: ", new_pt_frame->emulated_ppn);
+                                SIM_LOG_TRACE(*m_log, "Previous frame: ", (void*)previous_frame, " at offset ", previous_offset, " is updated with the new frame: ", (void*)current_frame);
                                 previous_frame->entries[previous_offset].data.next_level = current_frame;
                                 
 
@@ -334,7 +334,7 @@ namespace ParametricDramDirectoryMSI
                                 // Allocate a new page table
                                 if (page_size == 21 && level == 2)
                                 {
-                                        m_log->detailed("[2MiB] Let's update the PTE: ", (void*)current_frame, " with vpn = ", (address >> 12), " and ppn: ", ppn, " at level: ", level, " with page size: ", page_size);
+                                        SIM_LOG_TRACE(*m_log, "[2MiB] Let's update the PTE: ", (void*)current_frame, " with vpn = ", (address >> 12), " and ppn: ", ppn, " at level: ", level, " with page size: ", page_size);
                                         current_frame->entries[offset].data.translation.valid = true;
                                         current_frame->entries[offset].data.translation.ppn = ppn;
                                         current_frame->entries[offset].is_pte = true;
@@ -345,7 +345,7 @@ namespace ParametricDramDirectoryMSI
                                 else if (page_size == 12 && level == 1)
                                 {
 
-                                        m_log->detailed("[4KiB] Let's update the PTE: ", (void*)current_frame, " with vpn = ", (address >> 12), " and ppn: ", ppn, " at level: ", level, " with page size: ", page_size);
+                                        SIM_LOG_TRACE(*m_log, "[4KiB] Let's update the PTE: ", (void*)current_frame, " with vpn = ", (address >> 12), " and ppn: ", ppn, " at level: ", level, " with page size: ", page_size);
                                         current_frame->entries[offset].data.translation.valid = true;
                                         current_frame->entries[offset].data.translation.ppn = ppn;
                                         current_frame->entries[offset].is_pte = true;
@@ -356,7 +356,7 @@ namespace ParametricDramDirectoryMSI
 
                                 previous_frame = current_frame;
                                 current_frame = current_frame->entries[offset].data.next_level;
-                                m_log->detailed("Let's jump to the next level: ", (void*)current_frame);
+                                SIM_LOG_TRACE(*m_log, "Let's jump to the next level: ", (void*)current_frame);
                                 previous_offset = offset;
                                 level--;
                                 counter++;
@@ -371,7 +371,7 @@ namespace ParametricDramDirectoryMSI
         void PageTableRadix::deletePage(IntPtr address)
         {
 
-                m_log->detailed("Deleting page that corresponds to address: ", SimLog::hex(address));
+                SIM_LOG_TRACE(*m_log, "Deleting page that corresponds to address: ", SimLog::hex(address));
                 PTFrame *current_frame = root;
                 IntPtr offset = (address >> 39) & 0x1FF;
 
@@ -384,7 +384,7 @@ namespace ParametricDramDirectoryMSI
 
                         if (current_frame->entries[offset].is_pte)
                         {
-                                m_log->detailed("Found the PTE for address: ", SimLog::hex(address), " at level: ", level, " with offset: ", offset);
+                                SIM_LOG_TRACE(*m_log, "Found the PTE for address: ", SimLog::hex(address), " at level: ", level, " with offset: ", offset);
                                 current_frame->entries[offset].data.translation.valid = false;
                                 current_frame->entries[offset].data.translation.ppn = -1;
                                 break;

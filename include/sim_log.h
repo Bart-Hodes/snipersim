@@ -306,12 +306,27 @@ public:
     template<typename... Args>
     void detailed(const Args&... args) { trace(args...); }
 
-    // Format address as hex string (utility method)
-    static std::string hex(uint64_t addr) {
-        std::ostringstream oss;
-        oss << "0x" << std::hex << addr << std::dec;
-        return oss.str();
-    }
+    // An address to log as 0x...: formatted only when the message is written.
+    // hex() is called in hot paths (every page-table walk) with the log off,
+    // so it must not build a string there.
+    struct Hex {
+        uint64_t addr;
+        friend std::ostream& operator<<(std::ostream& os, Hex h) {
+            return os << "0x" << std::hex << h.addr << std::dec;
+        }
+        std::string str() const {
+            std::ostringstream oss;
+            oss << *this;
+            return oss.str();
+        }
+        // For messages built with +: those build the text even when the
+        // log is off, so guard them (SIM_LOG_*) in hot paths.
+        friend std::string operator+(const std::string& s, Hex h) { return s + h.str(); }
+        friend std::string operator+(const char* s, Hex h) { return s + h.str(); }
+        friend std::string operator+(Hex h, const std::string& s) { return h.str() + s; }
+        friend std::string operator+(Hex h, const char* s) { return h.str() + s; }
+    };
+    static Hex hex(uint64_t addr) { return Hex{addr}; }
 
     // Direct access to stream for custom formatting
     std::ofstream& stream() { return m_file; }
@@ -326,3 +341,6 @@ public:
 
 #define SIM_LOG_TRACE(logger, ...) \
     do { if ((logger).isEnabled(SimLog::LEVEL_TRACE)) (logger).trace(__VA_ARGS__); } while(0)
+
+#define SIM_LOG_SECTION(logger, ...) \
+    do { if ((logger).isEnabled(SimLog::LEVEL_INFO)) (logger).section(__VA_ARGS__); } while(0)
