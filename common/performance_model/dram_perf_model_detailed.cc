@@ -268,6 +268,7 @@ DramPerfModelDetailed::DramPerfModelDetailed(core_id_t core_id, UInt32 cache_blo
 
    // Register statistics
    registerStatsMetric(name, core_id, "total-access-latency", &m_total_access_latency);
+   registerStatsMetric(name, core_id, "total-queueing-delay", &m_total_queueing_delay);
    registerStatsMetric(name, core_id, "total-access-latency-data", &m_total_access_latency_data);
    registerStatsMetric(name, core_id, "total-access-latency-metadata", &m_total_access_latency_metadata);
    registerStatsMetric(name, core_id, "total-accesses-data", &m_total_accesses_data);
@@ -1195,6 +1196,7 @@ SubsecondTime DramPerfModelDetailed::getAccessLatency(SubsecondTime pkt_time, UI
       m_total_queue_depth_at_access_data += approx_queue_depth;
    }
 
+   m_total_queueing_delay += ddr_queue_delay;
    t_now += ddr_queue_delay;
    perf->updateTime(t_now, ShmemPerf::DRAM_QUEUE);
 
