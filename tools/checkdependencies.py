@@ -52,7 +52,9 @@ def find_header_files(header_files, include_paths):
         for root, dirs, files in os.walk(path):
             for header in header_files:
                 header_file = header['header_file']
-                if header_file in files or header_file in dirs:
+                # also one symlinked directory down (nix: include/python3.14 -> ...)
+                if header_file in files or header_file in dirs or \
+                   any(os.path.exists(os.path.join(root, d, header_file)) for d in dirs):
                     found_files[header_file] = os.path.join(root, header_file)
     return found_files
 
