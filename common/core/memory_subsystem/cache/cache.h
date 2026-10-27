@@ -82,6 +82,18 @@ private:
 	UInt64 data_util[8];
 	UInt64 metadata_util[8];
 
+	/* As data_util/metadata_util, for the lines still in the cache when the
+	 * ROI ends (counted then, as if the cache were flushed): with the
+	 * evicted ones, every line the ROI brought in. */
+	UInt64 data_util_resident[8];
+	UInt64 metadata_util_resident[8];
+	void countResident();
+	static SInt64 __countResident(UInt64 arg, UInt64)
+	{
+		((Cache *)arg)->countResident();
+		return 0;
+	}
+
 #ifdef ENABLE_SET_USAGE_HIST
 	UInt64 *m_set_usage_hist;
 #endif

@@ -1312,13 +1312,13 @@ namespace ParametricDramDirectoryMSI
 			// Use the actual offset and data_length from the request to track sub-line utilization
 			// Note: Track utilization even when modeled=false (fill path after miss)
 			// This is critical for metadata accesses that bypass L1 but still need utilization tracking
-			if (!m_perfect)
+			// Not for prefetches: a prefetch fill asks for the whole line,
+			// which says nothing about the words the program uses
+			if (!m_perfect && isPrefetch == Prefetch::NONE)
 			{
 				bool new_bits = cache_block_info->updateUsage(offset, data_length);
-				if (new_bits && m_next_cache_cntlr)
-				{
-					m_next_cache_cntlr->updateUsageBits(address, cache_block_info->getUsage());
-				}
+				if (new_bits)
+					propagateUsage(address, cache_block_info->getUsage());
 			} 
 
 			// Increment Shared Mem Perf model cycle counts
@@ -1482,13 +1482,12 @@ namespace ParametricDramDirectoryMSI
 					
 					// Track sub-line utilization on miss path (after data is fetched)
 					// This ensures metadata accesses that bypass L1 still get utilization tracked
-					if (modeled && !m_perfect) {
+					if (modeled && !m_perfect && isPrefetch == Prefetch::NONE) {
 						SharedCacheBlockInfo* new_block_info = getCacheBlockInfo(address);
 						if (new_block_info) {
 							bool new_bits = new_block_info->updateUsage(offset, data_length);
-							if (new_bits && m_next_cache_cntlr) {
-								m_next_cache_cntlr->updateUsageBits(address, new_block_info->getUsage());
-							}
+							if (new_bits)
+								propagateUsage(address, new_block_info->getUsage());
 						}
 					}
 				}
@@ -1643,10 +1642,26 @@ namespace ParametricDramDirectoryMSI
 			SharedCacheBlockInfo *cache_block_info = getCacheBlockInfo(address);
 			new_bits = cache_block_info->updateUsage(used);
 		}
-		if (new_bits && m_next_cache_cntlr && !m_perfect)
-		{
+		if (new_bits && !m_perfect)
+			propagateUsage(address, used);
+	}
+
+	void
+	CacheCntlr::propagateUsage(IntPtr address, CacheBlockInfo::BitsUsedType used)
+	{
+		if (m_next_cache_cntlr)
 			m_next_cache_cntlr->updateUsageBits(address, used);
-		}
+		else
+			updateNucaUsage(address, used);
+	}
+
+	void
+	CacheCntlr::updateNucaUsage(IntPtr address, CacheBlockInfo::BitsUsedType used)
+	{
+		MemoryManager *home = dynamic_cast<MemoryManager *>(
+			Sim()->getCoreManager()->getCoreFromID(getHome(address))->getMemoryManager());
+		if (home && home->getNucaCache())
+			home->getNucaCache()->updateUsage(address, used);
 	}
 
 	void

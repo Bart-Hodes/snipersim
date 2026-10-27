@@ -46,6 +46,14 @@ NucaCache::NucaCache(MemoryManagerBase* memory_manager, ShmemPerfModel* shmem_pe
    registerStatsMetric("nuca-cache", m_core_id, "write-misses", &m_write_misses);
 }
 
+void
+NucaCache::updateUsage(IntPtr address, CacheBlockInfo::BitsUsedType used)
+{
+   CacheBlockInfo *block_info = m_cache->peekSingleLine(address);
+   if (block_info)
+      block_info->updateUsage(used);
+}
+
 NucaCache::~NucaCache()
 {
    delete m_cache;

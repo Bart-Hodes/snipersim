@@ -4,6 +4,7 @@
 #include "stats.h"
 #include "config.hpp"
 #include "debug_config.h"
+#include "hooks_manager.h"
 #include <memory>
 #include <fstream>
 #include <tuple>
@@ -166,7 +167,39 @@ Cache::Cache(
 		registerStatsMetric(name, core_id, String("metadata-util-") + std::to_string(i).c_str(), &metadata_util[i]);
 	}
 
+	for (int i = 0; i < 8; i++)
+	{
+		data_util_resident[i] = 0;
+		metadata_util_resident[i] = 0;
+		registerStatsMetric(name, core_id, String("data-util-resident-") + std::to_string(i).c_str(), &data_util_resident[i]);
+		registerStatsMetric(name, core_id, String("metadata-util-resident-") + std::to_string(i).c_str(), &metadata_util_resident[i]);
+	}
+	if (!is_tlb)
+		Sim()->getHooksManager()->registerHook(HookType::HOOK_ROI_END, __countResident, (UInt64)this);
 
+}
+
+/* The usage of every valid line, into data_util_resident and
+ * metadata_util_resident (the buckets of data_util): at the end of the ROI,
+ * so the lines the ROI never evicted count too. */
+void Cache::countResident()
+{
+	for (UInt32 set_index = 0; set_index < m_num_sets; ++set_index)
+	{
+		for (UInt32 way = 0; way < m_associativity; ++way)
+		{
+			CacheBlockInfo *block_info = m_sets[set_index]->peekBlock(way);
+			if (!block_info->isValid())
+				continue;
+			const int used = bits_set(block_info->getUsage());
+			const int bucket = used > 7 ? 7 : used;
+			if (block_info->getBlockType() == CacheBlockInfo::block_type_t::DATA ||
+				block_info->getBlockType() == CacheBlockInfo::block_type_t::INSTRUCTION)
+				data_util_resident[bucket]++;
+			else if (CacheBlockInfo::isMetadataBlockType(block_info->getBlockType()))
+				metadata_util_resident[bucket]++;
+		}
+	}
 }
 
 Cache::~Cache()

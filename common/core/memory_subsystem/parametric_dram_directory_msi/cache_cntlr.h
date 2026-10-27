@@ -409,6 +409,10 @@ namespace ParametricDramDirectoryMSI
 
          void updateUsageBits(IntPtr address, CacheBlockInfo::BitsUsedType used);
          void walkUsageBits();
+         /* Pass used words on: to the next private level, or from the
+          * last one to the NUCA cache at the address's home */
+         void propagateUsage(IntPtr address, CacheBlockInfo::BitsUsedType used);
+         void updateNucaUsage(IntPtr address, CacheBlockInfo::BitsUsedType used);
          static SInt64 __walkUsageBits(UInt64 arg0, UInt64 arg1) { ((CacheCntlr*)arg0)->walkUsageBits(); return 0; }
 
          // Wake up User Thread

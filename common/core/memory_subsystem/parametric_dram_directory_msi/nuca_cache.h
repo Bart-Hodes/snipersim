@@ -42,6 +42,9 @@ class NucaCache
       boost::tuple<SubsecondTime, HitWhere::where_t> read(IntPtr address, Byte* data_buf, SubsecondTime now, ShmemPerf *perf, bool count, bool is_metadata = false);
       boost::tuple<SubsecondTime, HitWhere::where_t> write(IntPtr address, Byte* data_buf, bool& eviction, IntPtr& evict_address, Byte* evict_buf, SubsecondTime now, bool count, bool is_metadata = false);
       void markTranslationMetadata(IntPtr address, CacheBlockInfo::block_type_t blocktype);
+      /* OR the words a private cache used into the line's usage bits, if
+       * the line is here (data-util of the NUCA cache) */
+      void updateUsage(IntPtr address, CacheBlockInfo::BitsUsedType used);
       void measureStats();
 };
 
