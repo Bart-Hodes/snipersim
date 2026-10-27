@@ -69,12 +69,15 @@ static const std::vector<int> &hostCPUPool()
 // are more trace threads than CPUs, so placement is only distinct while
 // nthreads <= |pool|.
 //
-// Set SNIPER_PIN_TRACE_THREADS=0 to leave placement to the OS.
+// Off by default: thread ids start at 0 in every process, so parallel runs
+// all pinned their thread 0 to the pool's first CPU (and the threads it
+// creates inherited that one-CPU mask). Set SNIPER_PIN_TRACE_THREADS=1 to pin
+// (one run per cgroup, e.g. a SLURM job).
 // ---------------------------------------------------------------------------
 static void pinTraceThreadToCPU(int thread_id)
 {
    const char *pin = getenv("SNIPER_PIN_TRACE_THREADS");
-   if (pin && pin[0] == '0')
+   if (!pin || pin[0] != '1')
       return;
 
    const std::vector<int> &cpus = hostCPUPool();
